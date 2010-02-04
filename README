@@ -1,0 +1,6 @@
+This software depends on cudamat, the wonderful library written by Vlad Mnih.  This software is currently 
+undocumented and in the very early stages of development and will not run by itself.  It also requires a GPU 
+to use.
+
+
+For alternative licensing, please contact the author.  The software currently uses the MIT license.
