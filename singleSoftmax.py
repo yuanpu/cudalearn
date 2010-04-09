@@ -1,5 +1,5 @@
 #Copyright (c) 2009,2010 George Dahl
-
+import gpu_lock
 import numpy as num
 
 import cudamat as cm
@@ -15,18 +15,21 @@ def cpuSoftmax(netInput):
     return result
 
 
-def singleSoftmax(netInputs, tempCol, tempRow):
+def singleSoftmax(netInputs, tempRow):
     """
     We modify netInputs in place to hold the softmax activation
     probabilities and compute them in a numerically stable way.
     """
-    assert(tempCol.shape[0] == netInputs.shape[0])
+    #assert(tempCol.shape[0] == netInputs.shape[0])
+    #assert(tempRow.shape[0] == tempCol.shape[1])
     assert(tempRow.shape[1] == netInputs.shape[1])
-    assert(tempRow.shape[0] == tempCol.shape[1])
-
-    tempCol.assign_scalar(1)
+    
     netInputs.max(axis = 0, target = tempRow)
-    netInputs.subtract_dot(tempCol, tempRow)
+    #these two lines should be faster than the two below them and let us remove the tempCol param
+    tempRow.mult(-1)
+    netInputs.add_row_vec(tempRow)
+    #tempCol.assign_scalar(1)
+    #netInputs.subtract_dot(tempCol, tempRow)
     cm.exp(netInputs)
     netInputs.sum(axis = 0, target = tempRow)
     tempRow.reciprocal()
@@ -98,11 +101,12 @@ def main():
     print r.dtype
     tempCol = cm.CUDAMatrix(reformat(num.zeros((xGPU.shape[0],1))))
     tempRow = cm.CUDAMatrix(reformat(num.zeros((1,xGPU.shape[1]))))
-    singleSoftmax(xGPU, tempCol, tempRow)
+    #singleSoftmax(xGPU, tempCol, tempRow)
+    singleSoftmax(xGPU, tempRow)
     xGPU.copy_to_host()
     diff = xGPU.numpy_array-r
     print num.sum(num.abs(diff))
-    testMaskedSM()
+    #testMaskedSM()
 
     col = cm.CUDAMatrix(reformat(num.random.rand(5,1)))
     print col.shape
@@ -121,7 +125,7 @@ if __name__ == "__main__":
     print "export LD_LIBRARY_PATH=/u/gdahl/cudaLearn/"
     print "export CUDAMATDIR=/u/gdahl/cudaLearn"
     
-    devId = cm.cuda_get_free_device()
+    devId = gpu_lock.obtain_lock_id()
     cm.cuda_set_device(devId)
     
     cm.cublas_init()

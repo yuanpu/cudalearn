@@ -2,9 +2,9 @@
 
 import numpy as num
 
+from singleSoftmax import singleSoftmax
 
 import cudamat as cm
-from cudamat import reformat
 
 class GaussianRBM(object):
     def __init__(self, numVis, numHid, mbsz = 256, initHidBias = 0.0, initWeightSigma = 0.05):
@@ -36,10 +36,10 @@ class GaussianRBM(object):
     mbsz = property(getMBSZ,setMBSZ)
     
     def initTemporary(self):
-        self.hActs = cm.CUDAMatrix(reformat(num.zeros((self.numHid, self.mbsz))))
-        self.hActProbs = cm.CUDAMatrix(reformat(num.zeros((self.numHid, self.mbsz))))
-        self.negVis = cm.CUDAMatrix(reformat(num.zeros((self.numVis, self.mbsz))))
-        self.tempVisMB = cm.CUDAMatrix(reformat(num.zeros((self.numVis, self.mbsz))))
+        self.hActs = cm.CUDAMatrix(num.zeros((self.numHid, self.mbsz)))
+        self.hActProbs = cm.CUDAMatrix(num.zeros((self.numHid, self.mbsz)))
+        self.negVis = cm.CUDAMatrix(num.zeros((self.numVis, self.mbsz)))
+        self.tempVisMB = cm.CUDAMatrix(num.zeros((self.numVis, self.mbsz)))
         self.negHidActProbs = None
     
     def init_weight_storage(self):
@@ -49,8 +49,8 @@ class GaussianRBM(object):
         """
         for name in self.weightVariableNames():
             w = self.__dict__[name]
-            self.__dict__[name] = cm.CUDAMatrix(reformat(w))
-            self.__dict__["d"+name] = cm.CUDAMatrix(reformat(0.0 * w))
+            self.__dict__[name] = cm.CUDAMatrix(w)
+            self.__dict__["d"+name] = cm.CUDAMatrix(0.0 * w)
             
     
     def scaleDerivs(self, factor):
@@ -75,7 +75,7 @@ class GaussianRBM(object):
             assert( wDict.has_key(w_name) )
             w = wDict[w_name]
             assert( self.__dict__[w_name].numpy_array.shape == wDict[w_name].shape )
-            self.__dict__[w_name] = cm.CUDAMatrix(reformat(w))
+            self.__dict__[w_name] = cm.CUDAMatrix(w)
     
     def curRecErr(self):
         self.vis.subtract(self.negVis, target = self.tempVisMB)
@@ -186,7 +186,7 @@ class GaussianRBM(object):
         self.CDStats(self.vis, self.hActProbs, True)
 
         if self.negHidActProbs == None:
-            self.negHidActProbs = cm.CUDAMatrix(reformat(num.empty((self.numHid, self.mbsz))))
+            self.negHidActProbs = cm.CUDAMatrix(num.empty((self.numHid, self.mbsz)))
             self.negHidActProbs.assign(self.hActProbs)
         self.sampleHiddens(self.negHidActProbs)
         self.visActProbs()    
@@ -227,7 +227,7 @@ class GaussianRBM(object):
         need to know the signs.
         """
         if self.signVisToHid == None:
-            self.signVisToHid = cm.CUDAMatrix(reformat(num.zeros((self.numVis, self.numHid))))
+            self.signVisToHid = cm.CUDAMatrix(num.zeros((self.numVis, self.numHid)))
         self.visToHid.sign(target = self.signVisToHid)
         
     def decay(self):
@@ -281,7 +281,7 @@ class GaussianRBM(object):
         if onGPU:
             inputsGPU = inputs
         else:
-            inputsGPU = cm.CUDAMatrix(reformat(inputs))
+            inputsGPU = cm.CUDAMatrix(inputs)
         
         numcases = inputsGPU.numpy_array.shape[1]
         
@@ -301,7 +301,7 @@ class GaussianRBM(object):
         for ep in range(numEpochs):
             recErr = 0
             for j,mb in enumerate(freshMinibatches()):
-                curInputsMB = cm.CUDAMatrix(reformat(mb))
+                curInputsMB = cm.CUDAMatrix(mb)
                 
                 self.step(curInputsMB)
                 recErr += self.curRecErr()
@@ -334,7 +334,7 @@ class GaussianRBM(object):
         
         for i in range(numFullMinibatches):
             idx = i*self.mbsz
-            self.vis = cm.CUDAMatrix(reformat(inp[:,idx:idx+self.mbsz]))
+            self.vis = cm.CUDAMatrix(inp[:,idx:idx+self.mbsz])
             
             self.hidActProbs()
             if sample:
@@ -348,7 +348,7 @@ class GaussianRBM(object):
             idx = numFullMinibatches*self.mbsz
             mb = num.zeros((inp.shape[0], self.mbsz))
             mb[:,:excess] = inp[:, idx:]
-            self.vis = cm.CUDAMatrix(reformat(mb))
+            self.vis = cm.CUDAMatrix(mb)
             self.hidActProbs()
             if sample:
                 self.sampleHiddens(self.hActProbs)
@@ -368,7 +368,7 @@ class GaussianRBM(object):
         if onGPU:
             hiddensGPU = hiddens
         else:
-            hiddensGPU = cm.CUDAMatrix(reformat(hiddens))
+            hiddensGPU = cm.CUDAMatrix(hiddens)
 
         numcases = hiddensGPU.numpy_array.shape[1]
         num_mini_batches = numcases / self.mbsz
@@ -390,6 +390,26 @@ class BinaryRBM(GaussianRBM):
         GaussianRBM.visActProbs(self)
         self.negVis.apply_sigmoid()
 
+class SoftmaxRBM(GaussianRBM):
+    def __init__(self, numVis, numHid, k, mbsz = 256, initHidBias = 0.0, initWeightSigma = 0.05):
+        assert(numVis % k == 0)
+        self.k = k
+        GaussianRBM.__init__(self,  numVis, numHid, mbsz, initHidBias, initWeightSigma)
+
+    def initTemporary(self):
+        self.hActs = cm.CUDAMatrix(num.zeros((self.numHid, self.mbsz)))
+        self.hActProbs = cm.CUDAMatrix(num.zeros((self.numHid, self.mbsz)))
+        self.negVis = cm.CUDAMatrix(num.zeros((self.numVis, self.mbsz)))
+        self.tempVisMB = cm.CUDAMatrix(num.zeros((self.numVis, self.mbsz)))
+        self.negHidActProbs = None
+        self.tempRow = cm.CUDAMatrix(num.zeros((1,(self.numVis/self.k)*self.mbsz)))
+    
+    def visActProbs(self):
+        GaussianRBM.visActProbs(self) #now self.negVis holds the net input to the visible units
+        #self.negVis has shape (self.numVis, self.mbsz)
+        self.negVis.reshape((self.k, self.mbsz*self.numVis/self.k))
+        singleSoftmax(self.negVis, self.tempRow)
+        self.negVis.reshape((self.numVis, self.mbsz))
 
 def gpu_batches(data, past, mbs, transpose = True):
     """

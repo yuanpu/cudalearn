@@ -112,7 +112,7 @@ class DBN_GPU(object):
                 if onGPU:
                     curInputsMB = mb
                 else:
-                    curInputsMB = cm.CUDAMatrix(reformat(mb))
+                    curInputsMB = cm.CUDAMatrix(mb)
                 self.layers[i].step(self.fpropToIth(curInputsMB, i))
                 recErr += self.layers[i].curRecErr()
                 if reportMB:

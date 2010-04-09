@@ -407,7 +407,8 @@ class HybridKClassCrossEntropy(object):
             cm.log(self.tempHidMB)
             self.tempHidMB.sum(0, self.tempRow)
             self.tempLabelMB.set_row_slice(c,c+1, self.tempRow)
-        singleSoftmax(self.tempLabelMB, self.tempLabelCol, self.tempRow)
+        #singleSoftmax(self.tempLabelMB, self.tempLabelCol, self.tempRow)
+        singleSoftmax(self.tempLabelMB, self.tempRow)
         self.tempLabelMB.copy_to_host()
         self.acts = self.tempLabelMB.numpy_array.copy() #self.tempLabelMB.numpy_array #we may not need the copy here
         return self.acts
@@ -571,7 +572,8 @@ class HybridKClassCrossEntropy(object):
         if reconstructLabels:
             cm.dot( self.U, self.hActs, target = self.negLabels)
             self.negLabels.add_col_vec(self.labBias)
-            singleSoftmax(self.negLabels, self.tempLabelCol, self.tempRow)
+            #singleSoftmax(self.negLabels, self.tempLabelCol, self.tempRow)
+            singleSoftmax(self.negLabels, self.tempRow)
 
     
     def CDStats(self, vis, labels,  hid, posPhase, clampLabels):
