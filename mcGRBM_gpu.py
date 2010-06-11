@@ -20,14 +20,6 @@ def logOnePlusExp(x, temp, targ = None):
     temp.add(1)
     cm.log(temp)
     x.add(temp, target = targ)
-    #temp.assign(x)
-    #cm.exp(temp)
-    #temp.add_scalar(1)
-    #cm.log(temp)
-    #if targ == None:
-    #    x.assign(temp)
-    #else:
-    #    targ.assign(temp)
 
 def negate(x):
     """
@@ -82,9 +74,7 @@ class CovGRBM(object):
         self.numVis = numVis
         self.numFact = numFact
         self.numHid = numHid
-
-        #@TODO: remove this later
-        #num.random.seed(8)
+        
         self.visToFact = cm.CUDAMatrix(initWeightSigma*num.random.randn(numVis, numFact))
         self.dvisToFact = cm.CUDAMatrix(num.zeros((numVis, numFact)))
         self.randomSparseFactToHid() #creates self.factToHid
@@ -231,9 +221,7 @@ class CovGRBM(object):
             #    #it doesn't really make sense to use L2 on factToHid since we keep the columns at a constant norm
             if "L1" in regType:
                 self.updateSignOfWeights()
-                #self.visToFact.subtract_mult(self.signVisToFact, decayRate*self.learnRateVF)
                 self.dvisToFact.subtract_mult(self.signVisToFact, decayRate)
-                #self.factToHid.subtract_mult(self.signFactToHid, decayRate*self.learnRateFH)
                 self.dfactToHid.subtract_mult(self.signFactToHid, decayRate)
             
     def scaleDerivs(self, factor):
@@ -272,7 +260,8 @@ class CovGRBM(object):
             factToHid[idx, num.arange(self.numHid)] -= w
 
         self.setFactorHiddenMatrix(factToHid)
-        self.factHidColNorm = num.sqrt(num.sum(factToHid**2)/factToHid.shape[1]) #we don't need this anymore
+        #we don't need this anymore, someday it will be removed
+        self.factHidColNorm = num.sqrt(num.sum(factToHid**2)/factToHid.shape[1]) 
         
     def blockIdentityFactToHid(self, radius = 1):
         factToHid = -num.eye(self.numFact, self.numHid)
@@ -312,29 +301,7 @@ class CovGRBM(object):
         self.normVisToFact = 0.95*self.normVisToFact + (0.05/self.numFact)*self.tempScalar.asarray()[0,0]
 
         self.visToFact.mult(self.normVisToFact)
-        
-        #columnNorms(self.visToFact, self.tempVisToFact, self.curVisToFactColNorms)
-        #
-        #columnNorms(self.visToFact, self.tempVisToFact, self.tempFactRow)
-        #self.tempFactRow.reciprocal()
-        #self.visToFact.mult_by_row(self.tempFactRow)
-        #
-        #if self.maxColNorm == None:
-        #    if not self.allColsSame:
-        #        self.visToFact.mult_by_row(self.visToFactColNorms)
-        #    else:
-        #        #copies a 1 by 1 from gpu to cpu
-        #        self.visToFact.mult( self.visToFactColNorms.sum(axis=1).asarray()[0,0]/self.numFact ) 
-        #else:    
-        #    #we constrain any columns with norm > self.maxColNorm to have norm == self.maxColNorm
-        #    newNormsCPU = self.curVisToFactColNorms.asarray().copy()
-        #    newNormsCPU[newNormsCPU > self.maxColNorm] = self.maxColNorm
-        #    newNorms = cm.CUDAMatrix(newNormsCPU)
-        #    self.visToFact.mult_by_row(newNorms)
-            
-            
-
-        
+                
     def step(self, data, renorm):
         if isinstance(data, cm.CUDAMatrix):
             self.vis = data
@@ -403,12 +370,11 @@ class CovGRBM(object):
 
         #I modified cudamat's add_dot to take a multiplier
         #need to multiply by 0.5 to make finite diffs agree
+        #
         self.dfactToHid.add_dot(self.factResponsesSq, hid.T, mult = 0.5*multiplier)
         if posPhase:
-            #self.dvisToFact.add_dot(vis, self.tempFactMB.T)
             self.dvisToFact.add_dot(normalizedVis, self.tempFactMB.T)
         else:
-            #self.dvisToFact.subtract_dot(vis, self.tempFactMB.T)
             self.dvisToFact.subtract_dot(normalizedVis, self.tempFactMB.T)
 
     def Hamiltonian(self, hamil):
@@ -446,7 +412,6 @@ class CovGRBM(object):
         cm.dot(self.factToHid, self.hActProbs, target = self.tempFactMB)
         self.tempFactMB.mult(-1)
         self.tempFactMB.mult(self.factResponses)
-        #cm.dot(self.visToFact, self.tempFactMB, target = self.accel)
         cm.dot(self.visToFact, self.tempFactMB, target = self.normalizedAccel)
 
         #rename some things to be like Marc'Aurelio's code:
@@ -633,7 +598,6 @@ class MeanCovGRBM(CovGRBM):
     def __init__(self, numVis, numFact, numHid, numHidRBM, mbsz = 256, initWeightSigma = 0.02, initHidBiasRBM = 0):
         self.numHidRBM = numHidRBM
         self.visToHid = cm.CUDAMatrix(initWeightSigma*num.random.randn(numVis, self.numHidRBM))
-        #self.visToHid = cm.CUDAMatrix(0.0*num.random.randn(numVis, self.numHidRBM))
         self.dvisToHid = cm.CUDAMatrix(num.zeros(self.visToHid.shape))
         self.hidBiasRBM = cm.CUDAMatrix(num.zeros((self.numHidRBM, 1)) + initHidBiasRBM)
         self.dhidBiasRBM = cm.CUDAMatrix(num.zeros(self.hidBiasRBM.shape))
@@ -665,28 +629,6 @@ class MeanCovGRBM(CovGRBM):
         for name in self.weightVariableNames():
             print name+":", self.__dict__[name].euclid_norm(),",", \
                   learnRates[name]*self.__dict__["d"+name].euclid_norm()/self.mbsz, ";",
-        #print d,dd
-
-##    #@TODO: fix decay for mcRBM, add L1 decay to mean unit weights
-##    def decay(self):
-##        CovGRBM.decay()
-##        #here are the learning parameters this method depends on
-##        decayRate = self.weightCost
-##        regType = self.regType
-        
-##        if decayRate > 0: #hopefully this saves time when decayRate == 0
-##            #at the moment I don't feel like having L2 weight decay as an option
-##            assert( regType in ["L1"] )
-##            #assert( regType in ["L2","L1"] )
-##            #if "L2" in regType:
-##            #    self.visToFact.mult( 1-decayRate*self.learnRate )
-##            #    #it doesn't really make sense to use L2 on factToHid since we keep the columns at a constant norm
-##            if "L1" in regType:
-##                self.updateSignOfWeights()
-##                #self.visToFact.subtract_mult(self.signVisToFact, decayRate*self.learnRateVF)
-##                self.dvisToFact.subtract_mult(self.signVisToFact, decayRate)
-##                #self.factToHid.subtract_mult(self.signFactToHid, decayRate*self.learnRateFH)
-##                self.dfactToHid.subtract_mult(self.signFactToHid, decayRate)
     
     def setLearningParams(self, **kwargs):
         CovGRBM.setLearningParams(self, **kwargs)
@@ -752,11 +694,6 @@ class MeanCovGRBM(CovGRBM):
         
         #compute positive phase statistics and add them to gradient variables
         self.CDStats(self.vis, self.normalizedVisMB, self.hActProbs, self.hActProbsRBM, True)
-        
-        #updates self.hActs
-        #self.sampleHiddens(self.hActProbs)
-        #updates self.hActs
-        #self.sampleHiddensRBM(self.hActProbsRBM)
         
         #updates self.negVis
         self.HMCSample()

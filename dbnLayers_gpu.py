@@ -18,7 +18,7 @@ class GaussianBinaryDBNLayer(GaussianRBM):
     def initTemporary(self):
         GaussianRBM.initTemporary(self)
         #the "return value" of bprop
-        self.inputError = cm.CUDAMatrix(reformat(num.zeros((self.numVis, self.mbsz))))
+        self.inputError = cm.CUDAMatrix(num.zeros((self.numVis, self.mbsz)))
 
     def fprop(self):
         self.hidActProbs()
@@ -76,10 +76,10 @@ class KClassCrossEntropy(object):
         self._mbsz = mbsz
 
         #self.classSpecificCosts = None
-        self.W = cm.CUDAMatrix(reformat(0.05*num.random.randn(numIn, numClasses)))
-        self.dW = cm.CUDAMatrix(reformat(num.zeros((numIn, numClasses))))
-        self.bias = cm.CUDAMatrix(reformat(num.zeros((numClasses, 1))))
-        self.dbias = cm.CUDAMatrix(reformat(num.zeros((numClasses, 1))))
+        self.W = cm.CUDAMatrix(0.05*num.random.randn(numIn, numClasses))
+        self.dW = cm.CUDAMatrix(num.zeros((numIn, numClasses)))
+        self.bias = cm.CUDAMatrix(num.zeros((numClasses, 1)))
+        self.dbias = cm.CUDAMatrix(num.zeros((numClasses, 1)))
         
         self.inpt = None
         self.errSignal = None
@@ -96,8 +96,8 @@ class KClassCrossEntropy(object):
     vis = property(getVis, setVis)
     
     def initTemporary(self):
-        self.actsGPU = cm.CUDAMatrix(reformat(num.zeros((self.numClasses, self.mbsz))))
-        self.inputError = cm.CUDAMatrix(reformat(num.zeros((self.numIn, self.mbsz))))
+        self.actsGPU = cm.CUDAMatrix(num.zeros((self.numClasses, self.mbsz)))
+        self.inputError = cm.CUDAMatrix(num.zeros((self.numIn, self.mbsz)))
 
     def getMBSZ(self):
         return self._mbsz
@@ -138,7 +138,7 @@ class KClassCrossEntropy(object):
 
     def outputErr(self, target):
         assert(target.shape == self.acts.shape)
-        self.errSignal = cm.CUDAMatrix(reformat(target - self.acts))
+        self.errSignal = cm.CUDAMatrix(target - self.acts)
         return self.errSignal.numpy_array
     
     def bprop(self):
@@ -205,10 +205,10 @@ class BinaryOutputsCrossEntropy(KClassCrossEntropy):
         self.numOut = numOut
         self._mbsz = mbsz
         
-        self.W = cm.CUDAMatrix(reformat(0.05*num.random.randn(numIn, numOut)))
-        self.dW = cm.CUDAMatrix(reformat(num.zeros((numIn, numOut))))
-        self.bias = cm.CUDAMatrix(reformat(num.zeros((numOut, 1))))
-        self.dbias = cm.CUDAMatrix(reformat(num.zeros((numOut, 1))))
+        self.W = cm.CUDAMatrix(0.05*num.random.randn(numIn, numOut))
+        self.dW = cm.CUDAMatrix(num.zeros((numIn, numOut)))
+        self.bias = cm.CUDAMatrix(num.zeros((numOut, 1)))
+        self.dbias = cm.CUDAMatrix(num.zeros((numOut, 1)))
         
         self.inpt = None
         self.errSignal = None
@@ -217,9 +217,9 @@ class BinaryOutputsCrossEntropy(KClassCrossEntropy):
         self.setLearningParams(0.08, 0.9, 0, "L2")
     
     def initTemporary(self):
-        self.acts = cm.CUDAMatrix(reformat(num.zeros((self.numOut, self.mbsz))))
-        self.errSignal = cm.CUDAMatrix(reformat(num.zeros((self.numOut, self.mbsz))))
-        self.inputError = cm.CUDAMatrix(reformat(num.zeros((self.numIn, self.mbsz))))
+        self.acts = cm.CUDAMatrix(num.zeros((self.numOut, self.mbsz)))
+        self.errSignal = cm.CUDAMatrix(num.zeros((self.numOut, self.mbsz)))
+        self.inputError = cm.CUDAMatrix(num.zeros((self.numIn, self.mbsz)))
     
     def fprop(self):
         cm.dot( self.W.T, self.inpt, target = self.acts)
@@ -228,7 +228,7 @@ class BinaryOutputsCrossEntropy(KClassCrossEntropy):
         return self.acts
 
     def outputErr(self, targetsOnCPU):
-        targetsOnGPU = cm.CUDAMatrix(reformat(targetsOnCPU))
+        targetsOnGPU = cm.CUDAMatrix(targetsOnCPU)
         targetsOnGPU.subtract(self.acts, target = self.errSignal)
                 
     def error(self, targets):
@@ -268,11 +268,11 @@ class GeneralizedSoftmax(KClassCrossEntropy):
         self.numClasses = codeMatrix.shape[0]
         self._mbsz = mbsz
 
-        self.C = cm.CUDAMatrix(reformat(codeMatrix)) #numClasses by numOut
-        self.W = cm.CUDAMatrix(reformat(0.05*num.random.randn(numIn, self.numOut)))
-        self.dW = cm.CUDAMatrix(reformat(num.zeros((numIn, self.numOut))))
-        self.bias = cm.CUDAMatrix(reformat(num.zeros((self.numOut, 1))))
-        self.dbias = cm.CUDAMatrix(reformat(num.zeros((self.numOut, 1))))
+        self.C = cm.CUDAMatrix(codeMatrix) #numClasses by numOut
+        self.W = cm.CUDAMatrix(0.05*num.random.randn(numIn, self.numOut))
+        self.dW = cm.CUDAMatrix(num.zeros((numIn, self.numOut)))
+        self.bias = cm.CUDAMatrix(num.zeros((self.numOut, 1)))
+        self.dbias = cm.CUDAMatrix(num.zeros((self.numOut, 1)))
         
         self.inpt = None
         self.errSignal = None
@@ -281,10 +281,10 @@ class GeneralizedSoftmax(KClassCrossEntropy):
         self.setLearningParams(0.08, 0.9, 0, "L2")
     
     def initTemporary(self):
-        self.outputsGPU = cm.CUDAMatrix(reformat(num.zeros((self.numClasses, self.mbsz))))
-        self.acts = cm.CUDAMatrix(reformat(num.zeros((self.numOut, self.mbsz))))
-        self.errSignal = cm.CUDAMatrix(reformat(num.zeros((self.numOut, self.mbsz))))
-        self.inputError = cm.CUDAMatrix(reformat(num.zeros((self.numIn, self.mbsz))))
+        self.outputsGPU = cm.CUDAMatrix(num.zeros((self.numClasses, self.mbsz)))
+        self.acts = cm.CUDAMatrix(num.zeros((self.numOut, self.mbsz)))
+        self.errSignal = cm.CUDAMatrix(num.zeros((self.numOut, self.mbsz)))
+        self.inputError = cm.CUDAMatrix(num.zeros((self.numIn, self.mbsz)))
     
     def fprop(self):
         cm.dot( self.W.T, self.inpt, target = self.acts)
@@ -299,7 +299,7 @@ class GeneralizedSoftmax(KClassCrossEntropy):
 
     def outputErr(self, target):
         assert(target.shape == self.outputs.shape)
-        self.outputErrGPU = cm.CUDAMatrix(reformat(target - self.outputs))
+        self.outputErrGPU = cm.CUDAMatrix(target - self.outputs)
         cm.dot(self.C.T, self.outputErrGPU, target = self.errSignal)
 
     def error(self, targets):
@@ -325,18 +325,18 @@ class HybridKClassCrossEntropy(object):
         self._mbsz = mbsz
 
         
-        self.W = cm.CUDAMatrix(reformat(0.05*num.random.randn(numVis, numHid)))
-        self.dW = cm.CUDAMatrix(reformat(num.zeros((numVis, numHid))))
-        self.U = cm.CUDAMatrix(reformat(0.05*num.random.randn(numClasses, numHid)))
-        self.dU = cm.CUDAMatrix(reformat(num.zeros((numClasses, numHid))))
+        self.W = cm.CUDAMatrix(0.05*num.random.randn(numVis, numHid))
+        self.dW = cm.CUDAMatrix(num.zeros((numVis, numHid)))
+        self.U = cm.CUDAMatrix(0.05*num.random.randn(numClasses, numHid))
+        self.dU = cm.CUDAMatrix(num.zeros((numClasses, numHid)))
 
-        self.labBias = cm.CUDAMatrix(reformat(num.zeros((numClasses, 1))))
-        self.hidBias = cm.CUDAMatrix(reformat(num.zeros((numHid, 1))))
-        self.visBias = cm.CUDAMatrix(reformat(num.zeros((numVis, 1))))
+        self.labBias = cm.CUDAMatrix(num.zeros((numClasses, 1)))
+        self.hidBias = cm.CUDAMatrix(num.zeros((numHid, 1)))
+        self.visBias = cm.CUDAMatrix(num.zeros((numVis, 1)))
         
-        self.dLabBias = cm.CUDAMatrix(reformat(num.zeros((numClasses, 1))))
-        self.dHidBias = cm.CUDAMatrix(reformat(num.zeros((numHid, 1))))
-        self.dVisBias = cm.CUDAMatrix(reformat(num.zeros((numVis, 1))))
+        self.dLabBias = cm.CUDAMatrix(num.zeros((numClasses, 1)))
+        self.dHidBias = cm.CUDAMatrix(num.zeros((numHid, 1)))
+        self.dVisBias = cm.CUDAMatrix(num.zeros((numVis, 1)))
         
         
         self.vis = None
@@ -347,25 +347,25 @@ class HybridKClassCrossEntropy(object):
         self.setLearningParams(0.08, 0.9, 0, "L2", 1, False, 0)
 
     def initTemporary(self):
-        self.tempW = cm.CUDAMatrix(reformat(num.zeros((self.numVis, self.numHid))))
-        self.tempU = cm.CUDAMatrix(reformat(num.zeros((self.numClasses, self.numHid))))
+        self.tempW = cm.CUDAMatrix(num.zeros((self.numVis, self.numHid)))
+        self.tempU = cm.CUDAMatrix(num.zeros((self.numClasses, self.numHid)))
         
-        self.inputError = cm.CUDAMatrix(reformat(num.zeros((self.numVis, self.mbsz))))
-        self.hActs = cm.CUDAMatrix(reformat(num.zeros((self.numHid, self.mbsz))))
-        self.hActProbs = cm.CUDAMatrix(reformat(num.zeros((self.numHid, self.mbsz))))
-        self.negVis = cm.CUDAMatrix(reformat(num.zeros((self.numVis, self.mbsz))))
-        self.negLabels = cm.CUDAMatrix(reformat(num.zeros((self.numClasses, self.mbsz))))
-        self.tempVisMB = cm.CUDAMatrix(reformat(num.zeros((self.numVis, self.mbsz))))
-        self.tempHidMB = cm.CUDAMatrix(reformat(num.zeros((self.numHid, self.mbsz))))
-        self.tempLabelMB = cm.CUDAMatrix(reformat(num.zeros((self.numClasses, self.mbsz))))
-        self.tempRow = cm.CUDAMatrix(reformat(num.zeros((1, self.mbsz))))
-        self.tempLabelCol = cm.CUDAMatrix(reformat(num.zeros((self.numClasses, 1))))
-        self.tempHidCol = cm.CUDAMatrix(reformat(num.zeros((self.numHid, 1))))
-        self.tempHidRow = cm.CUDAMatrix(reformat(num.zeros((1, self.numHid))))
-        self.disc_grad_labhid = cm.CUDAMatrix(reformat(num.zeros((self.numClasses, self.numHid))))
+        self.inputError = cm.CUDAMatrix(num.zeros((self.numVis, self.mbsz)))
+        self.hActs = cm.CUDAMatrix(num.zeros((self.numHid, self.mbsz)))
+        self.hActProbs = cm.CUDAMatrix(num.zeros((self.numHid, self.mbsz)))
+        self.negVis = cm.CUDAMatrix(num.zeros((self.numVis, self.mbsz)))
+        self.negLabels = cm.CUDAMatrix(num.zeros((self.numClasses, self.mbsz)))
+        self.tempVisMB = cm.CUDAMatrix(num.zeros((self.numVis, self.mbsz)))
+        self.tempHidMB = cm.CUDAMatrix(num.zeros((self.numHid, self.mbsz)))
+        self.tempLabelMB = cm.CUDAMatrix(num.zeros((self.numClasses, self.mbsz)))
+        self.tempRow = cm.CUDAMatrix(num.zeros((1, self.mbsz)))
+        self.tempLabelCol = cm.CUDAMatrix(num.zeros((self.numClasses, 1)))
+        self.tempHidCol = cm.CUDAMatrix(num.zeros((self.numHid, 1)))
+        self.tempHidRow = cm.CUDAMatrix(num.zeros((1, self.numHid)))
+        self.disc_grad_labhid = cm.CUDAMatrix(num.zeros((self.numClasses, self.numHid)))
         self.discacchids = []
         for c in range(self.numClasses):
-            self.discacchids.append(cm.CUDAMatrix(reformat(num.zeros((self.numHid, self.mbsz)))))
+            self.discacchids.append(cm.CUDAMatrix(num.zeros((self.numHid, self.mbsz))))
         self.negHidActProbs = None
     
     def setLearningParams(self, learnRate, momentum, weightCost, regType, cdSteps, PCD, genCost):
@@ -392,7 +392,7 @@ class HybridKClassCrossEntropy(object):
         
         self.U.copy_to_host()
         labHid = self.U.numpy_array
-        Utrans = cm.CUDAMatrix(reformat(labHid.transpose()))
+        Utrans = cm.CUDAMatrix(labHid.transpose())
                 
         self.tempLabelMB.assign_scalar(0.0)
         self.tempLabelMB.add_col_vec(self.labBias)
@@ -415,8 +415,8 @@ class HybridKClassCrossEntropy(object):
     
     def outputErr(self, target):
         assert(target.shape == self.acts.shape)
-        self.errSignal = cm.CUDAMatrix(reformat(target - self.acts))
-        self.labels = cm.CUDAMatrix(reformat(target))
+        self.errSignal = cm.CUDAMatrix(target - self.acts)
+        self.labels = cm.CUDAMatrix(target)
         return self.errSignal.numpy_array
 
     def applyMomentum(self):
@@ -504,7 +504,7 @@ class HybridKClassCrossEntropy(object):
             assert( self.__dict__.has_key(w_name) )
             w = wDict[w_name]
             assert( self.__dict__[w_name].numpy_array.shape == w.shape )
-            self.__dict__[w_name] = cm.CUDAMatrix(reformat(w))
+            self.__dict__[w_name] = cm.CUDAMatrix(w)
 
     
                 
