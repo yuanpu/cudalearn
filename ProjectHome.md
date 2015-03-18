@@ -1,0 +1,3 @@
+This project aims to accelerate some useful deep learning algorithms (and occasionally other useful machine learning algorithms) by having them run on the GPU.  To run on the GPU, this project uses cudamat and implements the learning algorithms in Python.
+
+Message from the "maintainer": Currently the project is in quite a sorry state with basically no documentation. Please don't get your hopes up about the situation improving too rapidly.
